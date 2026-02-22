@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="si">
+
+<head>
+  <!-- Basic meta -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🏛 Mystery Temple - Galaxy Edition</title>
+
+  <!-- Favicon (emoji) -->
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛</text></svg>">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Share+Tech+Mono&family=Noto+Sans+Sinhala:wght@400;600&family=Orbitron:wght@400;700&display=swap"
+    rel="stylesheet">
+
+  <!-- CSS (split files; load in order) -->
+  <link rel="stylesheet" href="css/01-variables.css">
+  <link rel="stylesheet" href="css/02-layout.css">
+  <link rel="stylesheet" href="css/03-components.css">
+  <link rel="stylesheet" href="css/04-animations.css">
+  <link rel="stylesheet" href="css/05-effects.css">
+  <link rel="stylesheet" href="css/06-cipher.css">
+  <link rel="stylesheet" href="css/07-galaxy.css">
+  <link rel="stylesheet" href="css/08-cinematic.css">
+  <link rel="stylesheet" href="css/09-responsive.css">
+
+  <!-- MediaPipe (Hand gesture detection) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+  <!-- =========================================================
+       LOADING SCREEN
+       ========================================================= -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-galaxy-bg"></div>
+    <div class="loading-icon">🏛</div>
+    <div class="loading-text">Loading Mystery Temple...</div>
+    <div class="loading-bar-container">
+      <div class="loading-bar" id="loadingBar"></div>
+    </div>
+    <div class="loading-percent" id="loadingPercent">0%</div>
+    <div class="loading-tip" id="loadingTip">TIP: Collect all 4 runes to unlock the artifact!</div>
+  </div>
+
+  <!-- =========================================================
+       GAME CANVAS + BACKGROUND DOM EFFECTS
+       ========================================================= -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Background particles (DOM layer) -->
+  <div class="magic-particles" id="magicParticles"></div>
+  <div class="galaxy-stars" id="galaxyStars"></div>
+  <div class="shooting-stars" id="shootingStars"></div>
+
+  <!-- Screen vignette -->
+  <div class="vignette"></div>
+
+  <!-- =========================================================
+       HUD (Flex layout)
+       ========================================================= -->
+  <div class="game-hud" id="gameHud">
+
+    <!-- TOP BAR -->
+    <div class="hud-top">
+
+      <!-- Stats -->
+      <div class="stats-panel" id="statsPanel">
+        <div class="stat-item">
+          <span class="stat-icon">⚔️</span>
+          <span class="stat-label">SCORE</span>
+          <span class="stat-value" id="score">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">💎</span>
+          <span class="stat-label">GEMS</span>
+          <span class="stat-value" id="gems">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">🏆</span>
+          <span class="stat-label">BEST</span>
+          <span class="stat-value" id="highscore">0</span>
+        </div>
+      </div>
+
+      <!-- Lives + Pause -->
+      <div class="hud-top-center">
+        <div class="lives-panel" id="livesPanel">
+          <div class="lives-container" id="livesContainer">
+            <span class="life-heart active" id="life1">❤️</span>
+            <span class="life-heart active" id="life2">❤️</span>
+            <span class="life-heart active" id="life3">❤️</span>
+            <span class="life-heart active" id="life4">❤️</span>
+          </div>
+          <div class="lives-text"><span id="livesCount">4</span>/4</div>
+        </div>
+
+        <button class="pause-btn hidden" id="pauseBtn" onclick="togglePause()">⏸️</button>
+      </div>
+
+      <!-- Level -->
+      <div class="level-panel" id="levelPanel">
+        <div class="level-title">✨ LEVEL <span id="currentLevel">1</span>/5</div>
+        <div class="level-progress-bar">
+          <div class="level-progress-fill" id="levelProgressFill"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MIDDLE -->
+    <div class="hud-middle">
+
+      <!-- Left stack -->
+      <div class="hud-left">
+
+        <div class="gem-counter-panel" id="gemCounterPanel">
+          <div class="gem-count-item red">
+            <span class="gem-icon">❤️</span>
+            <span class="gem-label">Red</span>
+            <span class="gem-count" id="redGemCount">0</span>
+          </div>
+          <div class="gem-count-item green">
+            <span class="gem-icon">💚</span>
+            <span class="gem-label">Green</span>
+            <span class="gem-count" id="greenGemCount">0</span>
+          </div>
+          <div class="gem-count-item blue">
+            <span class="gem-icon">💙</span>
+            <span class="gem-label">Blue</span>
+            <span class="gem-count" id="blueGemCount">0</span>
+          </div>
+        </div>
+
+        <!-- Active boosts -->
+        <div class="active-boosts-panel hidden" id="activeBoostsPanel">
+          <div class="boost-item hidden" id="boostSpeed">
+            <span class="boost-icon">⚡</span>
+            <div class="boost-timer" id="boostSpeedTimer"></div>
+          </div>
+          <div class="boost-item hidden" id="boostShield">
+            <span class="boost-icon">🛡️</span>
+            <div class="boost-timer" id="boostShieldTimer"></div>
+          </div>
+          <div class="boost-item hidden" id="boostMagnet">
+            <span class="boost-icon">🧲</span>
+            <div class="boost-timer" id="boostMagnetTimer"></div>
+          </div>
+          <div class="boost-item hidden" id="boostDouble">
+            <span class="boost-icon">✖️2</span>
+            <div class="boost-timer" id="boostDoubleTimer"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Center -->
+      <div class="hud-center">
+        <div class="chase-progress hidden" id="chaseProgress">
+          <h4 id="chaseTitle">🔮 CATCH IT!</h4>
+          <div class="chase-bar">
+            <div class="chase-fill" id="chaseFill"></div>
+          </div>
+          <div class="chase-distance" id="chaseDistance">Distance: 0m</div>
+        </div>
+      </div>
+
+      <!-- Right stack -->
+      <div class="hud-right">
+
+        <div class="letters-panel" id="lettersPanel">
+          <div class="letters-title">🔮 SECRET RUNES</div>
+          <div class="collected-letters" id="collectedLetters"></div>
+
+          <div class="gesture-progress-section" id="gestureProgressSection">
+            <div class="gesture-progress-title">🖐 GESTURE LOCK</div>
+            <div class="gesture-progress-container">
+              <div class="gesture-progress-bar" id="gestureProgressBar"></div>
+            </div>
+            <div class="gesture-hint" id="gestureHint">Collect all runes!</div>
+          </div>
+        </div>
+
+        <div class="heart-progress-panel" id="heartProgressPanel">
+          <div class="heart-progress-row red">
+            <span class="heart-progress-icon">❤️</span>
+            <div class="heart-progress-bar">
+              <div class="heart-progress-fill" id="heartBarRed"></div>
+            </div>
+            <span class="heart-progress-text" id="heartTextRed">0/20</span>
+          </div>
+
+          <div class="heart-progress-row green">
+            <span class="heart-progress-icon">💚</span>
+            <div class="heart-progress-bar">
+              <div class="heart-progress-fill" id="heartBarGreen"></div>
+            </div>
+            <span class="heart-progress-text" id="heartTextGreen">0/20</span>
+          </div>
+
+          <div class="heart-progress-row blue">
+            <span class="heart-progress-icon">💙</span>
+            <div class="heart-progress-bar">
+              <div class="heart-progress-fill" id="heartBarBlue"></div>
+            </div>
+            <span class="heart-progress-text" id="heartTextBlue">0/20</span>
+          </div>
+
+          <div class="heart-progress-row yellow">
+            <span class="heart-progress-icon">💛</span>
+            <div class="heart-progress-bar">
+              <div class="heart-progress-fill" id="heartBarYellow"></div>
+            </div>
+            <span class="heart-progress-text" id="heartTextYellow">0/20</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="hud-bottom">
+      <div class="speed-indicator" id="speedIndicator">
+        <span class="speed-icon">🚀</span>
+        <span class="speed-value" id="speedValue">1.0x</span>
+      </div>
+
+      <div class="story-panel" id="storyPanel">✨ Collect 4 magical runes...</div>
+    </div>
+
+  </div>
+
+  <!-- =========================================================
+       BOOST POPUP
+       ========================================================= -->
+  <div class="boost-popup hidden" id="boostPopup">
+    <span class="boost-popup-icon" id="boostPopupIcon">⚡</span>
+    <span class="boost-popup-text" id="boostPopupText">SPEED BOOST!</span>
+  </div>
+
+  <!-- =========================================================
+       REVIVAL OVERLAY
+       ========================================================= -->
+  <div class="revival-overlay hidden" id="revivalOverlay">
+    <div class="revival-content">
+      <div class="revival-heart">💔</div>
+      <div class="revival-text">LIFE LOST!</div>
+      <div class="revival-lives-left">
+        <span id="revivalLivesLeft">3</span> lives remaining
+      </div>
+      <div class="revival-countdown" id="revivalCountdown">Reviving in 2...</div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       GAME COUNTDOWN (CHASE)
+       ========================================================= -->
+  <div class="game-countdown hidden" id="gameCountdown">
+    <div class="countdown-big" id="countdownBig">3</div>
+    <div class="countdown-text-big">GET READY!</div>
+  </div>
+
+  <!-- =========================================================
+       MOBILE CONTROLS
+       ========================================================= -->
+  <div class="mobile-controls" id="mobileControls">
+    <div class="control-group left-controls">
+      <button class="control-btn direction-btn" id="btnLeft" aria-label="Move Left">
+        <span class="btn-icon">⬅️</span>
+      </button>
+      <button class="control-btn direction-btn" id="btnRight" aria-label="Move Right">
+        <span class="btn-icon">➡️</span>
+      </button>
+    </div>
+
+    <div class="control-group right-controls">
+      <button class="control-btn slide-btn" id="btnSlide" aria-label="Slide">
+        <span class="btn-icon">⬇️</span>
+      </button>
+      <button class="control-btn jump-btn" id="btnJump" aria-label="Jump">
+        <span class="btn-icon">⬆️</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       PAUSE OVERLAY
+       ========================================================= -->
+  <div class="pause-overlay hidden" id="pauseOverlay">
+    <div class="pause-content">
+      <div class="pause-icon">⏸️</div>
+      <h2>PAUSED</h2>
+      <div class="pause-stats">
+        <p>Score: <span id="pauseScore">0</span></p>
+        <p>Level: <span id="pauseLevel">1</span></p>
+      </div>
+      <div class="pause-buttons">
+        <button class="btn primary-btn" onclick="resumeGame()">▶️ RESUME</button>
+        <button class="btn secondary-btn" onclick="restartGame()">🔄 RESTART</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       START OVERLAY
+       ========================================================= -->
+  <div class="overlay" id="startOverlay">
+    <div class="overlay-content start-screen">
+      <div class="title-icon floating">🏛</div>
+      <h1 class="game-title">MYSTERY TEMPLE</h1>
+      <p class="game-subtitle">✨ Galaxy Edition ✨</p>
+
+      <div class="game-features">
+        <div class="feature-item">🔮 Collect 4 secret runes</div>
+        <div class="feature-item">🎁 Chase magical artifacts</div>
+        <div class="feature-item">🔓 Decode hidden messages</div>
+        <div class="feature-item">🌌 Run through the galaxy</div>
+      </div>
+
+      <div class="difficulty-info">
+        <span class="difficulty-label">DIFFICULTY:</span>
+        <span class="difficulty-value">HARD</span>
+      </div>
+
+      <button class="btn play-btn" onclick="startGame()">
+        <span class="btn-icon">⚔️</span>
+        <span class="btn-text">BEGIN ADVENTURE</span>
+      </button>
+
+      <div class="start-footer">
+        <p class="lives-info">❤️ You have 4 lives</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MYSTERY ALERT
+       ========================================================= -->
+  <div class="mystery-alert hidden" id="mysteryAlert">
+    <div class="mystery-alert-content">
+      <div class="mystery-icon pulse" id="mysteryIcon">🔮</div>
+      <h2>⚡ ARTIFACT FOUND! ⚡</h2>
+      <p>A magical artifact awaits!</p>
+      <p>Catch it before it escapes!</p>
+      <button class="btn chase-btn" onclick="startCountdownOnScreen()">⚡ CHASE IT!</button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       LEVEL COMPLETE (GESTURE UNLOCK)
+       ========================================================= -->
+  <div class="overlay hidden" id="levelCompleteOverlay">
+    <div class="overlay-content level-complete-screen">
+      <div class="title-icon">✨</div>
+      <h2>CAPTURED!</h2>
+
+      <p class="runes-label">Collected Runes:</p>
+      <div class="rune-symbol-display" id="runeSymbolDisplay"></div>
+
+      <div class="gesture-unlock-section">
+        <div class="gesture-unlock-title">🖐 GESTURE UNLOCK</div>
+
+        <div class="gesture-required" id="gestureRequired">
+          <span class="gesture-icon" id="gestureRequiredIcon">✋</span>
+          <span class="gesture-name" id="gestureRequiredName">Open Palm</span>
+        </div>
+
+        <p class="gesture-hint-text">Show this gesture to camera to unlock!</p>
+
+        <button class="btn gesture-btn" onclick="openGestureModal()">📷 OPEN CAMERA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       GESTURE MODAL (CAMERA)
+       ========================================================= -->
+  <div class="gesture-modal hidden" id="gestureModal">
+    <div class="gesture-modal-content">
+      <h2 class="gesture-modal-title">🖐 GESTURE UNLOCK</h2>
+
+      <div class="camera-container" id="cameraContainer">
+        <video class="camera-video" id="cameraVideo" playsinline></video>
+        <canvas class="camera-canvas" id="cameraCanvas"></canvas>
+
+        <div class="gesture-guide" id="gestureGuide">
+          <div class="gesture-target pulse" id="gestureTarget">✋</div>
+          <div class="gesture-instruction">Show this gesture</div>
+        </div>
+
+        <div class="detection-status" id="detectionStatus">
+          <span class="detection-dot"></span>
+          <span class="detection-text">Waiting for hand...</span>
+        </div>
+      </div>
+
+      <div class="low-light-warning hidden" id="lowLightWarning">
+        <div class="warning-icon">🔦</div>
+        <div class="warning-text">Low light detected! Move to brighter area.</div>
+        <button class="btn small-btn" onclick="skipGestureAndShowPassword()">⏭️ SKIP</button>
+      </div>
+
+      <div class="camera-error hidden" id="cameraErrorBox">
+        <div class="camera-error-icon">📷</div>
+        <div class="camera-error-text" id="cameraErrorText">
+          Camera access failed. Please allow camera and press RETRY.
+        </div>
+        <button class="btn small-btn" onclick="retryGestureCamera()">🔁 RETRY</button>
+      </div>
+
+      <div class="gesture-verify-section">
+        <div class="gesture-verify-label" id="gestureVerifyLabel">🖐 HOLD GESTURE TO VERIFY...</div>
+        <div class="gesture-verify-progress-wrap">
+          <div class="gesture-verify-progress-fill" id="gestureVerifyProgressFill"></div>
+        </div>
+        <div class="gesture-verify-percent" id="gestureVerifyPercent">0%</div>
+      </div>
+
+      <div class="camera-privacy">
+        <div class="camera-privacy-text" id="cameraPrivacyText">
+          We never store your camera video. All gesture detection runs only on your device.
+        </div>
+        <button class="camera-privacy-translate" id="cameraPrivacyTranslateBtn">
+          <span class="translate-icon">🌐</span> සිංහලට පරිවර්තනය කරන්න
+        </button>
+      </div>
+
+      <div class="revealed-password-section hidden" id="gesturePasswordSection">
+        <div class="revealed-password-label">🔓 PASSWORD UNLOCKED</div>
+        <div class="revealed-password-display" id="gesturePasswordDisplay"></div>
+      </div>
+
+      <div class="gesture-password-input hidden" id="gesturePasswordInput">
+        <p class="input-mode-label">🔓 Password verified! Ready to reveal the secret.</p>
+        <button class="btn continue-btn" onclick="goToPasswordPage()" id="goToTerminalBtn">
+          ➡️ CONTINUE TO SECRET
+        </button>
+      </div>
+
+      <button class="btn secondary-btn close-btn" onclick="closeGestureModal()">✖️ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       PASSWORD MODAL (FALLBACK)
+       ========================================================= -->
+  <div class="overlay hidden" id="passwordModal">
+    <div class="overlay-content password-screen">
+      <div class="title-icon">🔐</div>
+      <h2>ENTER PASSWORD</h2>
+      <p class="password-hint">Type the password:</p>
+
+      <div class="revealed-password-display" id="modalPasswordDisplay"></div>
+
+      <input type="text" class="password-input" id="mainPasswordInput" maxlength="10" autocomplete="off"
+        placeholder="????">
+
+      <p class="password-error hidden" id="mainPasswordError">❌ Wrong password!</p>
+
+      <div class="password-buttons">
+        <button class="btn primary-btn" onclick="checkMainPassword()">🔓 UNLOCK</button>
+        <button class="btn secondary-btn" onclick="closeMainPasswordModal()">✖️ CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       UNLOCK ANIMATION OVERLAY
+       ========================================================= -->
+  <div class="unlock-animation-overlay hidden" id="unlockAnimationOverlay">
+    <div class="unlock-animation-content">
+      <div class="unlock-lock-icon" id="unlockLockIcon">🔒</div>
+      <div class="unlock-text" id="unlockText">UNLOCKING...</div>
+      <div class="unlock-progress-container">
+        <div class="unlock-progress-bar" id="unlockProgressBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       HACKING OVERLAY
+       ========================================================= -->
+  <div class="hacking-overlay hidden" id="hackingOverlay">
+    <div class="hack-matrix-bg" id="hackMatrixBg"></div>
+
+    <div class="hack-terminal">
+      <div class="hack-header">
+        <div class="hack-header-left">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+        </div>
+        <span class="hack-title">MYSTERY_TEMPLE // DECRYPTION</span>
+        <span class="hack-time" id="hackTime">00:00:00</span>
+      </div>
+
+      <div class="hack-lines" id="hackLines"></div>
+
+      <div class="hack-progress-container">
+        <div class="hack-progress-label">
+          <span>EXTRACTING SECRET...</span>
+          <span id="hackPercent">0%</span>
+        </div>
+        <div class="hack-progress-bar">
+          <div class="hack-progress-fill" id="hackProgressFill"></div>
+        </div>
+      </div>
+
+      <button class="btn hack-next-btn hidden" id="hackNextBtn" onclick="showMorseFromHack()">
+        ➡️ CONTINUE TO SECRET
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MORSE OVERLAY
+       ========================================================= -->
+  <div class="morse-code-overlay hidden" id="morseCodeOverlay">
+    <div class="morse-content">
+      <div class="morse-header">
+        <div class="morse-signal-waves">
+          <span class="signal-wave"></span>
+          <span class="signal-wave"></span>
+          <span class="signal-wave"></span>
+        </div>
+        <span class="morse-header-text">📡 ENCRYPTED MESSAGE</span>
+      </div>
+
+      <div class="morse-display" id="morseDisplay">
+        <div class="morse-text" id="morseText"></div>
+        <span class="morse-cursor">|</span>
+      </div>
+
+      <div class="morse-actions">
+        <button class="btn copy-btn" id="copyMorseBtn" onclick="copyMorseCode()">📋 COPY MORSE CODE</button>
+        <button class="btn continue-btn" onclick="continueAfterMorse()">▶️ CONTINUE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MORSE COUNTDOWN -->
+  <div class="morse-countdown-overlay hidden" id="morseCountdownOverlay">
+    <div class="morse-countdown-content">
+      <div class="morse-countdown-number" id="morseCountdownNumber">3</div>
+      <div class="morse-countdown-text">Resuming game...</div>
+    </div>
+  </div>
+
+  <!-- RETRY ALERT -->
+  <div class="retry-alert hidden" id="retryAlert">
+    <div class="retry-content">
+      <div class="retry-icon">💨</div>
+      <h2>ESCAPED!</h2>
+      <p>The artifact got away!</p>
+      <button class="btn retry-btn" onclick="retryLevel()">🔄 TRY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="gameOverOverlay">
+    <div class="overlay-content game-over-screen">
+      <div class="title-icon skull-shake">💀</div>
+      <h2>GAME OVER</h2>
+
+      <div class="game-over-stats">
+        <div class="stat-row">
+          <span class="stat-label">Final Score:</span>
+          <span class="stat-value" id="finalScore">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Level Reached:</span>
+          <span class="stat-value" id="finalLevel">1</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Gems Collected:</span>
+          <span class="stat-value" id="finalGems">0</span>
+        </div>
+      </div>
+
+      <button class="btn retry-btn" onclick="restartGame()">🔄 TRY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- FINAL WIN -->
+  <div class="overlay hidden" id="finalWinOverlay">
+    <div class="overlay-content final-win-screen">
+      <div class="title-icon heart-beat">💝</div>
+      <h2>ALL SECRETS CAPTURED</h2>
+      <p class="final-subtitle">5 encrypted transmissions successfully intercepted.</p>
+
+      <div class="final-morse-list" id="morseCollection"></div>
+
+      <div class="decrypter-buttons">
+        <button class="btn global-btn" onclick="openGlobalDecrypter()">🌐 GLOBAL DECRYPTER</button>
+        <button class="btn local-btn" onclick="openLocalDecrypter()">💻 LOCAL DECRYPTER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOCAL DECRYPTER -->
+  <div class="local-decrypter-overlay hidden" id="localDecrypterOverlay">
+    <div class="local-decrypter-content">
+
+      <!-- Infinity neon -->
+      <div class="infinity-container" id="infinityContainer">
+        <svg class="infinity-svg" viewBox="0 0 200 100">
+          <defs>
+            <linearGradient id="neonGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ff6b00" />
+              <stop offset="50%" stop-color="#ffcc00" />
+              <stop offset="100%" stop-color="#ff6b00" />
+            </linearGradient>
+            <filter id="neonGlow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <path class="infinity-bg"
+            d="M50,50 C50,20 80,20 100,50 C120,80 150,80 150,50 C150,20 120,20 100,50 C80,80 50,80 50,50" />
+          <path class="infinity-neon" filter="url(#neonGlow)"
+            d="M50,50 C50,20 80,20 100,50 C120,80 150,80 150,50 C150,20 120,20 100,50 C80,80 50,80 50,50" />
+        </svg>
+      </div>
+
+      <h2>LOCAL DECRYPTER</h2>
+      <p class="local-desc">Paste all captured Morse blocks here to decode them locally.</p>
+
+      <div class="decrypter-textarea-wrapper">
+        <textarea class="decrypter-textarea" id="decrypterTextarea" readonly></textarea>
+        <div class="typing-example hidden" id="typingExample">
+          <span class="typing-text"></span>
+          <span class="typing-cursor">|</span>
+        </div>
+      </div>
+
+      <div class="decrypter-buttons">
+        <button class="btn paste-btn" id="pasteBtn" onclick="handlePaste()">📋 PASTE</button>
+        <button class="btn decrypt-btn hidden" id="decryptBtn" onclick="handleDecrypt()">🔓 DECRYPT</button>
+      </div>
+
+      <button class="btn secondary-btn close-btn" onclick="closeLocalDecrypter()">✖️ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- CIPHER TRANSLATION -->
+  <div class="cipher-translation-overlay hidden" id="cipherTranslationOverlay">
+    <div class="cipher-translation-container">
+
+      <div class="wifi-signal-animation" id="wifiSignalAnimation">
+        <div class="wifi-icon">📡</div>
+        <div class="wifi-waves">
+          <span class="wifi-wave"></span>
+          <span class="wifi-wave"></span>
+          <span class="wifi-wave"></span>
+          <span class="wifi-wave"></span>
+        </div>
+        <div class="wifi-status" id="wifiStatus">RECEIVING SIGNAL...</div>
+      </div>
+
+      <div class="cipher-header">
+        <div class="cipher-header-icon" id="cipherHeaderIcon">🔐</div>
+        <h2 class="cipher-header-title" id="cipherHeaderTitle">INITIALIZING...</h2>
+      </div>
+
+      <div class="cipher-status-bar">
+        <div class="cipher-status-item" id="cipherStatus1"><span class="cipher-status-dot"></span><span>MORSE</span>
+        </div>
+        <div class="cipher-status-connector"></div>
+        <div class="cipher-status-item" id="cipherStatus2"><span class="cipher-status-dot"></span><span>DECODE</span>
+        </div>
+        <div class="cipher-status-connector"></div>
+        <div class="cipher-status-item" id="cipherStatus3"><span class="cipher-status-dot"></span><span>ANALYZE</span>
+        </div>
+        <div class="cipher-status-connector"></div>
+        <div class="cipher-status-item" id="cipherStatus4"><span class="cipher-status-dot"></span><span>FILL ❤️</span>
+        </div>
+        <div class="cipher-status-connector"></div>
+        <div class="cipher-status-item" id="cipherStatus5"><span class="cipher-status-dot"></span><span>UNLOCK</span>
+        </div>
+      </div>
+
+      <div class="cipher-signal-meter" id="cipherSignalMeter">
+        <div class="cipher-signal-bar" id="cipherSignalBar"></div>
+        <div class="cipher-signal-text" id="cipherSignalText">SIGNAL</div>
+      </div>
+
+      <div class="cipher-morse-section" id="cipherMorseSection">
+        <div class="cipher-section-header">
+          <span class="cipher-section-icon">📡</span>
+          <span class="cipher-section-label">ENCRYPTED STREAM</span>
+        </div>
+        <div class="cipher-morse-box">
+          <span class="cipher-morse-text" id="cipherMorseText"></span>
+        </div>
+      </div>
+
+      <div class="cipher-progress-section">
+        <div class="cipher-progress-info">
+          <div class="cipher-spinner" id="cipherSpinner">
+            <div class="cipher-spinner-ring"></div>
+          </div>
+          <div class="cipher-progress-text" id="cipherProgressText">Listening for signal...</div>
+          <div class="cipher-progress-percent" id="cipherProgressPercent">0%</div>
+        </div>
+        <div class="cipher-progress-bar-container">
+          <div class="cipher-progress-bar" id="cipherProgressBar"></div>
+        </div>
+      </div>
+
+      <div class="cipher-keyboard-section hidden" id="cipherKeyboardSection">
+        <div class="cipher-section-header">
+          <span class="cipher-section-icon">⌨️</span>
+          <span class="cipher-section-label">CHARACTER DECODER</span>
+        </div>
+        <div class="cipher-keyboard-container">
+          <div class="cipher-keyboard-grid" id="cipherKeyboardGrid"></div>
+        </div>
+      </div>
+
+      <div class="cipher-heartbeat-section hidden" id="cipherHeartbeatSection">
+        <div class="cipher-heartbeat-container">
+          <div class="cipher-heartbeat-icon pulse">💛</div>
+          <div class="cipher-heartbeat-line">
+            <svg class="heartbeat-svg" viewBox="0 0 300 50">
+              <path class="heartbeat-path" d="M0,25 L30,25 L40,10 L50,40 L60,10 L70,40 L80,25 L110,25 
+                   L120,10 L130,40 L140,10 L150,40 L160,25 L190,25
+                   L200,10 L210,40 L220,10 L230,40 L240,25 L270,25
+                   L280,10 L290,40 L300,25" />
+              <path class="heartbeat-path-mirror" d="M300,25 L270,25 L260,40 L250,10 L240,40 L230,10 L220,25 L190,25 
+                   L180,40 L170,10 L160,40 L150,10 L140,25 L110,25
+                   L100,40 L90,10 L80,40 L70,10 L60,25 L30,25
+                   L20,40 L10,10 L0,25" />
+            </svg>
+          </div>
+          <div class="cipher-heartbeat-bpm" id="cipherHeartbeatBpm">💛 80 BPM</div>
+        </div>
+      </div>
+
+      <div class="cipher-final-section hidden" id="cipherFinalSection">
+        <div class="cipher-final-box">
+          <span class="cipher-final-text" id="cipherFinalText"></span>
+        </div>
+      </div>
+
+      <div class="cipher-success-section hidden" id="cipherSuccessSection">
+        <div class="cipher-success-icon">💛</div>
+        <div class="cipher-success-text">DECODE COMPLETE</div>
+      </div>
+
+      <div class="cipher-gesture-unlock hidden" id="cipherGestureUnlock">
+        <div class="cipher-gesture-label">🔓 FINAL GESTURE VERIFICATION</div>
+        <div class="cipher-gesture-options">
+          <button class="cipher-gesture-btn" onclick="openCipherGestureVerify(0)">✋</button>
+          <button class="cipher-gesture-btn" onclick="openCipherGestureVerify(1)">✌️</button>
+          <button class="cipher-gesture-btn" onclick="openCipherGestureVerify(2)">☝️</button>
+          <button class="cipher-gesture-btn" onclick="openCipherGestureVerify(3)">👊</button>
+          <button class="cipher-gesture-btn" onclick="openCipherGestureVerify(4)">🤟</button>
+        </div>
+        <div class="cipher-gesture-hint">Verify all 5 gestures to continue.</div>
+        <div class="cipher-gesture-verify" id="cipherGestureVerify"></div>
+
+        <div class="cipher-gesture-hold-bar-wrap hidden" id="cipherGestureHoldWrap">
+          <div class="cipher-gesture-hold-bar" id="cipherGestureHoldBar"></div>
+        </div>
+      </div>
+
+      <div class="cipher-password-section hidden" id="cipherPasswordSection">
+        <div class="cipher-password-label">ENTER ALL 5 PASSWORDS</div>
+        <div class="cipher-password-display" id="cipherPasswordDisplay"></div>
+
+        <input type="text" class="cipher-password-input" id="cipherFinalPasswordInput"
+          placeholder="Type combined password..." maxlength="30" autocomplete="off">
+
+        <p class="cipher-password-error hidden" id="cipherPasswordError">❌ Incorrect sequence.</p>
+
+        <button class="btn unlock-btn" onclick="verifyCipherFinalPassword()">🔓 UNLOCK MESSAGE</button>
+      </div>
+
+      <button class="btn continue-btn hidden" id="cipherContinueBtn" onclick="closeCipherTranslation()">💛
+        CONTINUE</button>
+
+    </div>
+  </div>
+
+  <div class="cipher-particles-container" id="cipherParticlesContainer"></div>
+
+  <!-- FINAL DIALOG -->
+  <div class="overlay hidden" id="finalDialogOverlay">
+    <div class="overlay-content final-dialog-screen">
+      <div class="title-icon heart-beat">💌</div>
+      <h2>SPECIAL MESSAGE</h2>
+      <div class="final-message" id="finalDialogMessage"></div>
+      <p class="response-prompt">Your answer?</p>
+      <div class="response-buttons">
+        <button class="btn yes-btn" onclick="handleYesResponse()">✅ YES</button>
+        <button class="btn no-btn" onclick="handleNoResponse()">❌ NO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THANK YOU -->
+  <div class="overlay hidden" id="thankYouOverlay">
+    <div class="overlay-content thank-you-screen">
+      <div class="title-icon heart-beat" id="thankYouIcon">💖</div>
+      <h2>THANK YOU!</h2>
+      <div class="final-message" id="thankYouMessage"></div>
+
+      <div class="telegram-notice" id="telegramNotice">
+        <div class="telegram-notice-icon pulse">📱</div>
+        <div class="telegram-notice-text">
+          Check your <strong>Telegram</strong> after the game finished!
+        </div>
+      </div>
+
+      <div class="creator-credit">
+        <p>Created by</p>
+        <p class="creator-name glow-text">✨ Sasika Randunuge ✨</p>
+      </div>
+
+      <button class="btn temple-btn" onclick="showTempleWallAndCredits()">🏛 VIEW TEMPLE WALL</button>
+    </div>
+  </div>
+
+  <!-- TEMPLE WALL -->
+  <div class="temple-wall-overlay hidden" id="templeWallOverlay">
+    <div class="temple-wall-scene">
+      <div class="temple-wall-column left">
+        <div class="pillar-glow"></div>
+      </div>
+
+      <div class="temple-wall-panel">
+        <div class="temple-wall-glow"></div>
+        <div class="temple-wall-engraving" id="templeWallLines"></div>
+      </div>
+
+      <div class="temple-wall-column right">
+        <div class="pillar-glow"></div>
+      </div>
+    </div>
+
+    <button class="btn temple-continue-btn" id="templeWallContinueBtn" onclick="closeTempleWallAndShowCredits()">
+      💖 CONTINUE
+    </button>
+
+    <div class="telegram-sending-notice hidden" id="telegramSendingNotice">
+      <div class="sending-spinner"></div>
+      <span>Sending to Telegram...</span>
+    </div>
+  </div>
+
+  <!-- CINEMATIC CREDITS -->
+  <div class="cinematic-credits-overlay hidden" id="cinematicCreditsOverlay">
+    <div class="credits-matrix-bg" id="creditsMatrixBg"></div>
+    <div class="credits-scanlines"></div>
+
+    <div class="credits-container">
+      <div class="credits-content" id="creditsContent">
+        <div class="credits-title-section">
+          <h1 class="credits-title glitch-text" data-text="MYSTERY TEMPLE">MYSTERY TEMPLE</h1>
+          <p class="credits-subtitle">A LOVE LETTER IN CODE</p>
+        </div>
+
+        <div class="credits-section creator-section">
+          <div class="credits-label">CREATED BY</div>
+          <div class="credits-name main-creator glitch-text" data-text="SASIKA RANDUNUGE">
+            ✨ SASIKA RANDUNUGE ✨
+          </div>
+        </div>
+
+        <div class="credits-section tech-section">
+          <div class="credits-label">POWERED BY</div>
+          <div class="credits-tech-grid">
+            <div class="tech-item">
+              <span class="tech-icon">🤖</span>
+              <span class="tech-name">Claude AI</span>
+              <span class="tech-role">Lead Developer</span>
+            </div>
+            <div class="tech-item">
+              <span class="tech-icon">💎</span>
+              <span class="tech-name">Gemini AI</span>
+              <span class="tech-role">Assistant</span>
+            </div>
+            <div class="tech-item">
+              <span class="tech-icon">🧠</span>
+              <span class="tech-name">ChatGPT</span>
+              <span class="tech-role">Consultant</span>
+            </div>
+            <div class="tech-item">
+              <span class="tech-icon">💻</span>
+              <span class="tech-name">VS Code</span>
+              <span class="tech-role">IDE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="credits-section">
+          <div class="credits-label">TECHNOLOGIES</div>
+          <div class="credits-tech-list">
+            <span class="tech-badge">Three.js</span>
+            <span class="tech-badge">MediaPipe</span>
+            <span class="tech-badge">JavaScript</span>
+            <span class="tech-badge">CSS3</span>
+            <span class="tech-badge">HTML5</span>
+          </div>
+        </div>
+
+        <div class="credits-section">
+          <div class="credits-label">SPECIAL THANKS</div>
+          <div class="credits-thanks">
+            <p>To the one who inspired this game 💕</p>
+            <p class="small-text">You know who you are...</p>
+          </div>
+        </div>
+
+        <div class="credits-footer">
+          <div class="credits-year">© 2024</div>
+          <div class="credits-location">Made with 💖 in Sri Lanka</div>
+          <div class="credits-tagline">Every line of code is a love letter.</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn skip-btn" id="creditsSkipBtn" onclick="skipCredits()">SKIP ▶</button>
+
+    <div class="credits-progress">
+      <div class="credits-progress-fill" id="creditsProgressFill"></div>
+    </div>
+  </div>
+
+  <!-- GLITCH DELETE -->
+  <div class="glitch-delete-overlay hidden" id="glitchDeleteOverlay">
+    <div class="glitch-fragments" id="glitchFragments"></div>
+
+    <div class="glitch-container">
+      <div class="glitch-icon">🗑️</div>
+      <div class="glitch-text glitch-effect" id="glitchText">DELETING GAME DATA...</div>
+
+      <div class="glitch-progress-container">
+        <div class="glitch-progress-bar" id="glitchProgressBar"></div>
+      </div>
+
+      <div class="glitch-percent" id="glitchPercent">0%</div>
+      <div class="glitch-status" id="glitchStatus">Removing temporary files...</div>
+
+      <div class="glitch-file-list" id="glitchFileList"></div>
+    </div>
+
+    <div class="screen-tear" id="screenTear1"></div>
+    <div class="screen-tear" id="screenTear2"></div>
+    <div class="screen-tear" id="screenTear3"></div>
+  </div>
+
+  <!-- FINAL GOODBYE -->
+  <div class="final-goodbye-overlay hidden" id="finalGoodbyeOverlay">
+    <div class="goodbye-content">
+      <div class="goodbye-icon fade-in">👋</div>
+      <div class="goodbye-text fade-in">Thank you for playing!</div>
+      <div class="goodbye-hearts">💖 💕 💗 💓 💝</div>
+      <div class="goodbye-creator fade-in">- Sasika Randunuge</div>
+      <button class="btn play-again-btn fade-in" onclick="restartAfterCredits()">🔄 PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- FINAL BLACKOUT THANK YOU (Professional) -->
+  <div class="blackout-thanks hidden" id="blackoutThanks">
+    <div class="blackout-content">
+      <div class="blackout-counter" id="blackoutCounter">CALCULATING... 0%</div>
+
+      <div class="blackout-title" id="blackoutTitle">███████</div>
+      <div class="blackout-sub" id="blackoutSub">finalizing</div>
+
+      <div class="blackout-line"></div>
+
+      <div class="blackout-telegram" id="blackoutTelegram">Check your Telegram.</div>
+      <div class="blackout-refresh" id="blackoutRefresh">Refreshing in 10s...</div>
+
+      <button class="blackout-btn" id="blackoutPlayAgainBtn" type="button">
+        PLAY AGAIN
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="notification-container" id="notificationContainer"></div>
+
+  <!-- =========================================================
+       JS (split files; load in order)
+       ========================================================= -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <script src="js/01-config.js"></script>
+  <script src="js/02-state.js"></script>
+  <script src="js/03-utils.js"></script>
+  <script src="js/04-three-setup.js"></script>
+  <script src="js/05-game-objects.js"></script>
+  <script src="js/06-collisions.js"></script>
+  <script src="js/07-effects.js"></script>
+  <script src="js/08-gesture.js"></script>
+  <script src="js/09-cipher.js"></script>
+  <script src="js/10-telegram.js"></script>
+  <script src="js/11-cinematic.js"></script>
+  <script src="js/12-controls.js"></script>
+  <script src="js/13-main.js"></script>
+  <script src="js/14-optimization.js"></script>
+
+
+
+</body>
+
+</html>
