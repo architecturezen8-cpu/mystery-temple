@@ -1,32 +1,34 @@
 export async function onRequestPost({ request, env }) {
-  const update = await request.json().catch(() => null);
-  if (!update || !update.message) return json({ ok: true });
+    const update = await request.json().catch(() => null);
+    if (!update || !update.message) return json({ ok: true });
 
-  const chatId = String(update.message.chat.id);
-  const text = String(update.message.text || "").trim();
+    const chatId = String(update.message.chat.id);
+    const text = String(update.message.text || "").trim();
 
-  // /start
-  if (text.startsWith("/start")) {
-    const token = crypto.randomUUID().replace(/-/g, "");
-    const now = Date.now();
+    // /start
+    const isStart =
+        /^\/start(\s|$|@)/i.test(text) ||          // /start or /start@botname
+        text.trim().toLowerCase() === "start" ||   // user typed start
+        text.trim().toLowerCase() === "/link";     // optional command
 
-    // Save token -> chat_id
-    // Table: tg_sessions(token TEXT PRIMARY KEY, chat_id TEXT, created_at INTEGER, used INTEGER)
-    await env.DB.prepare(
-      "INSERT OR REPLACE INTO tg_sessions(token, chat_id, created_at, used) VALUES(?, ?, ?, 0)"
-    ).bind(token, chatId, now).run();
+    if (isStart) {
+        const token = crypto.randomUUID().replace(/-/g, "");
+        const now = Date.now();
 
-    const gameUrl = (env.GAME_URL || "").replace(/\/$/, "");
-    const link = `${gameUrl}?tg=${token}`;
+        await env.DB.prepare(
+            "INSERT OR REPLACE INTO tg_sessions(token, chat_id, created_at, used) VALUES(?, ?, ?, 0)"
+        ).bind(token, chatId, now).run();
 
-    // Android Chrome intent (often opens Chrome directly)
-    const linkNoProto = link.replace(/^https?:\/\//, "");
-    const chromeIntent =
-      `intent://${linkNoProto}` +
-      `#Intent;scheme=https;package=com.android.chrome;end`;
+        const gameUrl = (env.GAME_URL || "").replace(/\/$/, "");
+        const link = `${gameUrl}?tg=${token}`;
 
-    const msg =
-`🏛 <b>Mystery Temple</b>
+        const linkNoProto = link.replace(/^https?:\/\//, "");
+        const chromeIntent =
+            `intent://${linkNoProto}` +
+            `#Intent;scheme=https;package=com.android.chrome;end`;
+
+        const msg =
+            `🏛 <b>Mystery Temple</b>
 
 මෙන්න game link එක:
 ${link}
@@ -36,30 +38,30 @@ ${chromeIntent}
 
 Game එක ඉවර උනාම <b>Telegram</b> check කරන්න.`;
 
-    await tgSend(env.BOT_TOKEN, chatId, msg);
-  }
+        await tgSend(env.BOT_TOKEN, chatId, msg);
+    }
 
-  return json({ ok: true });
+    return json({ ok: true });
 }
 
 async function tgSend(botToken, chatId, text) {
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true
-    })
-  });
+    await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+        })
+    });
 }
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: { "Content-Type": "application/json" }
+    });
 }
