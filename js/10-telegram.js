@@ -1,102 +1,74 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    10-TELEGRAM.JS
-   Mystery Temple - Galaxy Edition
-
-   Telegram Bot integration (client-side).
-   IMPORTANT:
-   - Exposing bot token in frontend is NOT secure for real production use.
-   - Best practice: call your own backend / serverless endpoint instead.
+   Cloudflare Pages Functions bridge (NO bot token on frontend)
+   - Reads tg token from URL
+   - Sends finish payload to /api/finish
    ═══════════════════════════════════════════════════════════════════════════ */
 
 'use strict';
 
-/**
- * Send a Telegram message using Bot API.
- * @param {string} text
- * @param {object} [options]
- * @returns {Promise<{ok:boolean, error?:any}>}
- */
-async function telegramSendMessage(text, options = {}) {
-    if (!TELEGRAM_CONFIG?.enabled) return { ok: false, error: 'Telegram disabled' };
-    if (!TELEGRAM_CONFIG.botToken || !TELEGRAM_CONFIG.chatId) {
-        return { ok: false, error: 'Missing botToken/chatId' };
-    }
+const TG_FINISH_ENDPOINT = "/api/finish";
 
-    const url = `https://api.telegram.org/bot${TELEGRAM_CONFIG.botToken}/sendMessage`;
+function tgCaptureTokenFromUrl() {
+    const u = new URL(window.location.href);
+    const tg = u.searchParams.get("tg");
+    if (tg) {
+        localStorage.setItem("tg_token", tg);
+        return tg;
+    }
+    return null;
+}
+
+function tgGetToken() {
+    return localStorage.getItem("tg_token");
+}
+
+function tgIsLinkedSession() {
+    return Boolean(tgGetToken());
+}
+
+/**
+ * Send finish event to backend (Cloudflare Pages Functions).
+ * Uses fetch, and falls back to sendBeacon if available.
+ */
+async function tgNotifyFinish(answer, scoreVal, levelVal) {
+    const tg = tgGetToken();
+    if (!tg) return { ok: false, error: "No tg token in localStorage" };
 
     const payload = {
-        chat_id: TELEGRAM_CONFIG.chatId,
-        text: String(text || ''),
-        parse_mode: options.parseMode || 'HTML',
-        disable_web_page_preview: true
+        tg,
+        answer: String(answer || "N/A"),
+        score: scoreVal ?? "?",
+        level: levelVal ?? "?"
     };
 
+    // Prefer fetch (gives response), but beacon is more reliable during navigations
     try {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+        const res = await fetch(TG_FINISH_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
         const data = await res.json().catch(() => ({}));
-
-        if (!res.ok || data.ok !== true) {
-            return { ok: false, error: data };
-        }
-
-        return { ok: true };
-    } catch (error) {
-        return { ok: false, error };
+        return { ok: res.ok && data.ok === true, data };
+    } catch (e) {
+        // Fallback: try sendBeacon (no response)
+        try {
+            if (navigator.sendBeacon) {
+                const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+                navigator.sendBeacon(TG_FINISH_ENDPOINT, blob);
+                return { ok: true, beacon: true };
+            }
+        } catch { }
+        return { ok: false, error: e };
     }
 }
 
-/**
- * Show/hide "Sending to Telegram..." UI (Temple Wall overlay).
- * @param {boolean} show
- */
-function setTelegramSendingNotice(show) {
-    const notice = getEl('telegramSendingNotice');
-    if (!notice) return;
-    notice.classList.toggle('hidden', !show);
-}
+// Capture token once on page load (important)
+tgCaptureTokenFromUrl();
 
-/**
- * Auto-send summary when Temple Wall continue is pressed.
- * This is the "surprise" requirement.
- * @param {object} context
- */
-async function telegramAutoSendAfterTempleWall(context = {}) {
-    // Always safe (won't do anything if disabled)
-    const link = window.location.href;
-    const otp = getCombinedOTP();
-    const response = context.response || 'N/A';
+window.tgNotifyFinish = tgNotifyFinish;
+window.tgIsLinkedSession = tgIsLinkedSession;
 
-    // Keep it short + meaningful
-    const msg =
-`✅ <b>Mystery Temple Finished</b>
-
-🔗 Link: ${link}
-🔐 OTP: <code>${otp}</code>
-💬 Answer: <b>${response}</b>
-
-— Created by Sasika Randunuge`;
-
-    setTelegramSendingNotice(true);
-    const result = await telegramSendMessage(msg);
-    setTelegramSendingNotice(false);
-
-    if (result.ok) {
-        showNotification('Telegram message sent.', 'success', 2500);
-    } else {
-        // Do not break UX if telegram fails
-        console.warn('Telegram send failed:', result.error);
-        showNotification('Telegram unavailable (message not sent).', 'info', 2500);
-    }
-
-    return result.ok;
-}
-
-window.telegramSendMessage = telegramSendMessage;
-window.telegramAutoSendAfterTempleWall = telegramAutoSendAfterTempleWall;
-
-console.log('✅ 10-telegram.js loaded');
+console.log("✅ Telegram bridge loaded. Linked:", tgIsLinkedSession());

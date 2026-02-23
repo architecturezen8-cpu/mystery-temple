@@ -196,6 +196,7 @@ window.showTempleWallAndCredits = showTempleWallAndCredits;
  * - auto sends Telegram message silently (if enabled)
  * - then goes to either final dialog or credits (depending on mode)
  */
+/* ====== BEGIN REPLACE: closeTempleWallAndShowCredits (send via /api/finish) ====== */
 async function closeTempleWallAndShowCredits() {
     const overlay = getEl('templeWallOverlay');
     if (overlay) {
@@ -205,17 +206,28 @@ async function closeTempleWallAndShowCredits() {
 
     templeWallActive = false;
 
-    // Auto Telegram send (surprise)
-    // Will not break UX if disabled/fails
-    const response = playerResponse ? playerResponse.toUpperCase() : 'N/A';
-    await telegramAutoSendAfterTempleWall({ response });
+    // Show "sending..." small notice (if element exists)
+    const notice = getEl('telegramSendingNotice');
+    if (notice) notice.classList.remove('hidden');
 
-    if (templeWallNextAction === 'credits') {
-        startCinematicCredits();
-    } else {
-        showFinalDialog();
+    // Send Telegram finish message via backend
+    // At this stage playerResponse may be null. It's OK; backend will receive N/A.
+    const answer = (playerResponse ? playerResponse.toUpperCase() : "N/A");
+
+    let sentOk = false;
+    if (!window.__tg_finish_sent__ && typeof window.tgNotifyFinish === "function") {
+        window.__tg_finish_sent__ = true;
+        const r = await window.tgNotifyFinish(answer, score, currentLevel + 1);
+        sentOk = Boolean(r && r.ok);
     }
+
+    if (notice) notice.classList.add('hidden');
+
+    // Continue flow
+    if (templeWallNextAction === 'credits') startCinematicCredits();
+    else showFinalDialog();
 }
+/* ====== END REPLACE: closeTempleWallAndShowCredits (send via /api/finish) ====== */
 
 window.closeTempleWallAndShowCredits = closeTempleWallAndShowCredits;
 
